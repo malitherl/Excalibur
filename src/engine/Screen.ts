@@ -1,4 +1,4 @@
-import { Vector, vec } from './Math/vector';
+import { vec, Vector } from './Math/vector';
 import { Logger } from './Util/Log';
 import { Camera } from './Camera';
 import { BrowserEvents } from './Util/Browser';
@@ -16,6 +16,16 @@ export enum DisplayMode {
    * Default, use a specified resolution for the game. Like 800x600 pixels for example.
    */
   Fixed = 'Fixed',
+
+  /**
+   * Fit an aspect ratio within the screen at all times will fill the screen.
+   */
+  ContentFitContainer = 'ContentFitContainer',
+
+  /**
+   * Fit an aspect ratio within the screen at all times will fill the screen.
+   */
+  ContentFitScreen = 'ContentFitScreen',
 
   /**
    * Fit to screen using as much space as possible while maintaining aspect ratio and resolution.
@@ -41,7 +51,6 @@ export enum DisplayMode {
    *   width: 100%;
    * }
    * ```
-   *
    */
   FitScreen = 'FitScreen',
 
@@ -159,6 +168,7 @@ export class Screen {
   public graphicsContext: ExcaliburGraphicsContext;
   private _canvas: HTMLCanvasElement;
   private _antialiasing: boolean = true;
+  private _contentResolution: ScreenDimension;
   private _browser: BrowserEvents;
   private _camera: Camera;
   private _resolution: ScreenDimension;
@@ -176,6 +186,7 @@ export class Screen {
   constructor(options: ScreenOptions) {
     this.viewport = options.viewport;
     this.resolution = options.resolution ?? { ...this.viewport };
+    this._contentResolution = this.resolution;
     this._displayMode = options.displayMode ?? DisplayMode.Fixed;
     this._canvas = options.canvas;
     this.graphicsContext = options.context;
@@ -633,6 +644,53 @@ export class Screen {
     };
   }
 
+  private _computeFitContentScreen() {
+    document.body.style.margin = '0px';
+    document.body.style.overflow = 'hidden';
+    const vw = window.innerWidth;
+    const vh = window.innerHeight;
+    this.viewport = {
+      width: vw,
+      height: vh
+    };
+
+    if (vw / vh <= this._contentResolution.width / this._contentResolution.height) {
+      this.resolution = {
+        width:  vw * this._contentResolution.width / vw,
+        height: vw * this._contentResolution.width / vw * vh / vw
+      };
+    } else {
+      this.resolution = {
+        width: vh *  this._contentResolution.height / vh * vw / vh,
+        height: vh *  this._contentResolution.height / vh
+      };
+    }
+  }
+
+  private _computeFitContentContainer() {
+    document.body.style.margin = '0px';
+    document.body.style.overflow = 'hidden';
+    const parent = this.canvas.parentElement;
+    const vw = parent.clientWidth;
+    const vh = parent.clientHeight;
+    this.viewport = {
+      width: vw,
+      height: vh
+    };
+
+    if (vw / vh <= this._contentResolution.width / this._contentResolution.height) {
+      this.resolution = {
+        width:  vw * this._contentResolution.width / vw,
+        height: vw * this._contentResolution.width / vw * vh / vw
+      };
+    } else {
+      this.resolution = {
+        width: vh *  this._contentResolution.height / vh * vw / vh,
+        height: vh *  this._contentResolution.height / vh
+      };
+    }
+  }
+
   private _computeFitContainer() {
     const aspect = this.aspectRatio;
     let adjustedWidth = 0;
@@ -673,8 +731,8 @@ export class Screen {
   private _setResolutionAndViewportByDisplayMode(parent: HTMLElement | Window) {
     if (this.displayMode === DisplayMode.FillContainer) {
       this.resolution = {
-        width: (<HTMLElement>parent).clientWidth,
-        height: (<HTMLElement>parent).clientHeight
+        width: (<HTMLElement> parent).clientWidth,
+        height: (<HTMLElement> parent).clientHeight
       };
 
       this.viewport = this.resolution;
@@ -684,8 +742,8 @@ export class Screen {
       document.body.style.margin = '0px';
       document.body.style.overflow = 'hidden';
       this.resolution = {
-        width: (<Window>parent).innerWidth,
-        height: (<Window>parent).innerHeight
+        width: (<Window> parent).innerWidth,
+        height: (<Window> parent).innerHeight
       };
 
       this.viewport = this.resolution;
@@ -697,6 +755,14 @@ export class Screen {
 
     if (this.displayMode === DisplayMode.FitContainer) {
       this._computeFitContainer();
+    }
+
+    if (this.displayMode === DisplayMode.ContentFitScreen) {
+      this._computeFitContentScreen();
+    }
+
+    if (this.displayMode === DisplayMode.ContentFitContainer){
+      this._computeFitContentContainer();
     }
   }
 }
